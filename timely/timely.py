@@ -39,7 +39,7 @@ class Timely(object):
         for instance in instances:
             times = instance.tags.get('times')
             if times:
-                data[instance] = []
+                data[instance.id] = []
                 times = times.split(';')
                 for i in xrange(len(times)):
                     try:
@@ -48,9 +48,11 @@ class Timely(object):
                         end_time = datetime.strptime(end_time, '%H:%M')
                     except ValueError:
                         continue
+                    start_time = start_time.strftime('%H:%M')
+                    end_time = end_time.strftime('%H:%M')
                     weekday = (self.weekdays[i + 1]
                                if self.iso else self.weekdays[i])
-                    data[instance].append((weekday, start_time, end_time,))
+                    data[instance.id].append((weekday, start_time, end_time,))
         return data
 
     def add(self, instance_ids=None, weekdays=None, start_time=None,
