@@ -28,6 +28,9 @@ class Timely(object):
             self.weekdays = weekdays
         self.verbose = verbose
 
+    def use_verbose(self):
+        self.verbose = True
+
     def all(self, instance_ids=None):
         """Read weekday run times for all or specific EC2 instances.
 
@@ -71,9 +74,12 @@ class Timely(object):
         """
         ftime = '%H:%M'
         if start_time and end_time:
-            start_time = datetime.strptime(start_time,
-                                           '%I:%M %p').strftime(ftime)
-            end_time = datetime.strptime(end_time, '%I:%M %p').strftime(ftime)
+            start_time = datetime.strptime(start_time, '%I:%M %p')
+            end_time = datetime.strptime(end_time, '%I:%M %p')
+            if start_time >= end_time:
+                raise ValueError('start time can\'t be greater than end time')
+            start_time = start_time.strftime(ftime)
+            end_time = end_time.strftime(ftime)
             updated = '{0}-{1}'.format(start_time, end_time)
         else:
             updated = None
