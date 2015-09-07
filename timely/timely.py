@@ -1,4 +1,3 @@
-# -*- coding: utf-8 -*-
 import boto.ec2
 import sys
 
@@ -6,7 +5,7 @@ from datetime import datetime
 
 
 class Timely(object):
-    def __init__(self, region='us-east-1', iso=False):
+    def __init__(self, region='us-east-1', iso=False, verbose=False):
         self.conn = boto.ec2.connect_to_region(region)
         self.iso = iso
         # Accommodate for ISO weekday - remove first element if `iso` is False
@@ -26,6 +25,10 @@ class Timely(object):
             # Remove first element in `weekdays` list object
             weekdays.pop(0)
             self.weekdays = weekdays
+        self.verbose = verbose
+
+    def use_verbose(self):
+        self.verbose = True
 
     def all(self, instance_ids=None):
         """Read weekday run times for all or specific EC2 instances.
@@ -55,7 +58,7 @@ class Timely(object):
                     data[instance.id].append((weekday, start_time, end_time,))
         return data
 
-    def add(self, instance_ids=None, weekdays=None, start_time=None,
+    def set(self, instance_ids=None, weekdays=None, start_time=None,
             end_time=None):
         """Create or update weekday run times for all or specific EC2
         instances.
@@ -68,11 +71,13 @@ class Timely(object):
             start_time (Optional[str]): The instance starting time
             end_time (Optional[str]): The instance ending time
         """
-        ftime = '%H:%M'
         if start_time and end_time:
-            start_time = datetime.strptime(start_time,
-                                           '%I:%M %p').strftime(ftime)
-            end_time = datetime.strptime(end_time, '%I:%M %p').strftime(ftime)
+            start_time = datetime.strptime(start_time, '%I:%M %p')
+            end_time = datetime.strptime(end_time, '%I:%M %p')
+            if start_time >= end_time:
+                raise ValueError('start time can\'t be greater than end time')
+            start_time = start_time.strftime('%H:%M')
+            end_time = end_time.strftime('%H:%M')
             updated = '{0}-{1}'.format(start_time, end_time)
         else:
             updated = None
@@ -89,16 +94,12 @@ class Timely(object):
                 continue
             times = instance.tags.get('times')
             if not times:
-                res = raw_input(
-                    instance.id + ' ' +
-                    'times does not exist. Create default values? [Y/n] '
-                )
-                if res.lower() == 'y':
-                    # No `times` tag - set default
-                    times = ';'.join([str(None)] * 7)
+                # No `times` tag - set default
+                times = ';'.join([str(None)] * 7)
+                try:
                     instance.add_tag('times', times)
-                else:
-                    continue
+                except self.conn.ResponseError, e:
+                    raise e
             times = times.split(';')
             if self.iso:
                 # Need to take into consideration that the user may pass the
@@ -144,11 +145,6 @@ class Timely(object):
                 weekday = now.isoweekday()
             else:
                 weekday = now.weekday()
-            current = {
-                'year': now.year,
-                'month': now.month,
-                'day': now.day,
-            }
             times = instance.tags.get('times')
             if times:
                 times = times.split(';')
@@ -158,40 +154,46 @@ class Timely(object):
                     continue
                 # If instance time is not `None`, cast the `start_time` and
                 # `end_time` as `datetime` objects
-                if today != 'None':
+                if today != str(None):
                     try:
                         start_time, end_time = today.split('-')
                         start_time = datetime.strptime(start_time, '%H:%M')
                         end_time = datetime.strptime(end_time, '%H:%M')
                     except ValueError:
                         continue
-                    start_time = start_time.replace(**current)
-                    end_time = end_time.replace(**current)
+                    start_time = start_time.replace(year=now.year,
+                                                    month=now.month,
+                                                    day=now.day)
+                    end_time = end_time.replace(year=now.year,
+                                                month=now.month, day=now.day)
                     if start_time <= now <= end_time:
                         if instance.state == 'stopped':
-                            sys.stdout.write(
-                                'Starting instance: {0}\r\n'.format(
-                                    instance.id
+                            if self.verbose:
+                                sys.stdout.write(
+                                    'Starting instance: {0}\r\n'.format(
+                                        instance.id
+                                    )
                                 )
-                            )
                             instance.start()
                     else:
                         if instance.state == 'running':
-                            sys.stdout.write(
-                                'Stopping instance: {0}\r\n'.format(
-                                    instance.id
+                            if self.verbose:
+                                sys.stdout.write(
+                                    'Stopping instance: {0}\r\n'.format(
+                                        instance.id
+                                    )
                                 )
-                            )
                             instance.stop()
                 else:
                     # If the time is `None` check to see if the instance is
                     # running - if it is, then stop it by default
                     if instance.state == 'running':
-                        sys.stdout.write(
-                            'Stopping instance: {0}\r\n'.format(
-                                instance.id
+                        if self.verbose:
+                            sys.stdout.write(
+                                'Stopping instance: {0}\r\n'.format(
+                                    instance.id
+                                )
                             )
-                        )
                         instance.stop()
 
     def __str__(self):
