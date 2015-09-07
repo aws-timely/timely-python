@@ -7,12 +7,12 @@ from timely import Timely
 
 class TimelyTestCase(unittest.TestCase):
     def setUp(self):
-        self.timely = Timely()
+        self.timely = Timely(verbose=True)
         self.conn = boto.ec2.connect_to_region('us-east-1')
         self.now = datetime.datetime.now()
 
     def test_times_tag_is_created(self):
-        self.timely.add(weekdays=['*'])
+        self.timely.set(weekdays=['*'])
         instances = self.conn.get_only_instances()
         for instance in instances:
             if instance.state != 'terminated':
@@ -21,6 +21,7 @@ class TimelyTestCase(unittest.TestCase):
                 continue
 
     def test_times_tag_has_length_of_7(self):
+        self.timely.set(weekdays=['*'])
         instances = self.conn.get_only_instances()
         for instance in instances:
             # Ensure that the length of the `times` list object has a length
@@ -30,25 +31,21 @@ class TimelyTestCase(unittest.TestCase):
 
     def test_time_is_set_for_weekday(self):
         weekday = self.timely.weekdays[self.now.weekday()]
-        start_time = self.now - datetime.timedelta(hours=1)
-        end_time = self.now + datetime.timedelta(hours=1)
-        start_time = start_time.strftime('%I:%M %p')
-        end_time = end_time.strftime('%I:%M %p')
-        self.timely.add(weekdays=[weekday], start_time=start_time,
-                        end_time=end_time)
+        self.timely.set(weekdays=[weekday], start_time='9:00 AM',
+                        end_time='5:00 PM')
         instances = self.conn.get_only_instances()
         for instance in instances:
             times = instance.tags['times'].split(';')
             self.assertNotEqual(times[self.now.weekday()], str(None))
 
-    def test_ensure_instance_is_running(self):
-        self.timely.check()
-        instances = self.conn.get_only_instances()
-        for instance in instances:
-            if instance.state != 'terminated':
-                self.assertEqual(instance.state, 'running')
-            else:
-                continue
+    def test_exception_if_start_time_is_greater_than_equal_to_end_time(self):
+        with self.assertRaises(ValueError):
+            # Greater
+            self.timely.set(weekdays=['*'], start_time='9:00 AM',
+                            end_time='8:00 AM')
+            # Equal
+            self.timely.set(weekdays=['*'], start_time='9:00 AM',
+                            end_time='9:00 AM')
 
     def tearDown(self):
         del self.timely
