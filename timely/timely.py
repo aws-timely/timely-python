@@ -31,6 +31,12 @@ class Timely(object):
     def use_verbose(self):
         self.verbose = True
 
+    def use_iso(self):
+        self.iso = True
+
+    def set_region(self, region):
+        self.conn = boto.ec2.connect_to_region(region)
+
     def all(self, instance_ids=None):
         """Read weekday run times for all or specific EC2 instances.
 
@@ -80,7 +86,7 @@ class Timely(object):
             start_time = datetime.strptime(start_time, '%I:%M %p')
             end_time = datetime.strptime(end_time, '%I:%M %p')
             if start_time >= end_time:
-                raise ValueError('start time can\'t be greater than end time')
+                raise ValueError('Start time can\'t be greater than end time')
             start_time = start_time.strftime('%H:%M')
             end_time = end_time.strftime('%H:%M')
             updated = '{0}-{1}'.format(start_time, end_time)
