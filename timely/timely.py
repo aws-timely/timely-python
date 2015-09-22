@@ -1,4 +1,5 @@
 import boto.ec2
+import collections
 import sys
 
 from datetime import datetime
@@ -30,6 +31,12 @@ class Timely(object):
     def use_verbose(self):
         self.verbose = True
 
+    def use_iso(self):
+        self.iso = True
+
+    def set_region(self, region):
+        self.conn = boto.ec2.connect_to_region(region)
+
     def all(self, instance_ids=None):
         """Read weekday run times for all or specific EC2 instances.
 
@@ -38,6 +45,8 @@ class Timely(object):
                 IDs
         """
         data = {}
+        Time = collections.namedtuple('Time',
+                                      ['weekday', 'start_time', 'end_time'])
         instances = self.conn.get_only_instances(instance_ids=instance_ids)
         for instance in instances:
             times = instance.tags.get('times')
@@ -55,7 +64,9 @@ class Timely(object):
                     end_time = end_time.strftime('%H:%M')
                     weekday = (self.weekdays[i + 1]
                                if self.iso else self.weekdays[i])
-                    data[instance.id].append((weekday, start_time, end_time,))
+                    data[instance.id].append(
+                        Time(weekday, start_time, end_time)
+                    )
         return data
 
     def set(self, instance_ids=None, weekdays=None, start_time=None,
@@ -75,7 +86,7 @@ class Timely(object):
             start_time = datetime.strptime(start_time, '%I:%M %p')
             end_time = datetime.strptime(end_time, '%I:%M %p')
             if start_time >= end_time:
-                raise ValueError('start time can\'t be greater than end time')
+                raise ValueError('Start time can\'t be greater than end time')
             start_time = start_time.strftime('%H:%M')
             end_time = end_time.strftime('%H:%M')
             updated = '{0}-{1}'.format(start_time, end_time)
@@ -129,6 +140,28 @@ class Timely(object):
                 instance.add_tag('times', times)
             except self.conn.ResponseError, e:
                 raise e
+
+    def unset(self, instance_ids=None, weekdays=None):
+        """Unset instance times for specific weekdays or all weekdays."""
+        # integer representation of `weekdays`
+        if weekdays == ['*']:
+            # All 7 days
+            weekdays = range(len(self.weekdays))
+        else:
+            weekdays = [self.weekdays.index(weekday) for weekday in weekdays]
+        instances = self.conn.get_only_instances(instance_ids=instance_ids)
+        for instance in instances:
+            times = instance.tags.get('times')
+            if times:
+                times = times.split(';')
+                for weekday in weekdays:
+                    times[weekday] = None
+                times = ';'.join([str(time) for time in times])
+                try:
+                    # Overwrite existing `times` tag with new value
+                    instance.add_tag('times', times)
+                except self.conn.ResponseError, e:
+                    raise e
 
     def check(self, instance_ids=None):
         """Check the state of instances and either start or stop them
