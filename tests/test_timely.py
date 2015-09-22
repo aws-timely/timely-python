@@ -2,6 +2,7 @@ import boto.ec2
 import datetime
 import unittest
 
+from time import sleep
 from timely import Timely
 
 
@@ -46,6 +47,49 @@ class TimelyTestCase(unittest.TestCase):
             # Equal
             self.timely.set(weekdays=['*'], start_time='9:00 AM',
                             end_time='9:00 AM')
+
+    def test_unset_method(self):
+        self.timely.set(weekdays=['*'], start_time='9:00 AM',
+                        end_time='5:00 PM')
+        try:
+            instance = self.conn.get_only_instances()[0]
+            times = self.timely.all()[instance.id]
+            # First - set times for all days of the week
+            self.assertEqual(len(times), 7)
+            # Second - unset times for all days of the week
+            self.timely.unset(weekdays=['*'])
+            times = self.timely.all()[instance.id]
+            self.assertEqual(len(times), 0)
+        except IndexError:
+            pass
+
+    def test_check_method_stops_instance_if_should_not_be_running(self):
+        try:
+            instance = self.conn.get_only_instances()[0]
+            if instance.state == 'stopped':
+                # Start the instance to ensure it is running
+                instance.start()
+            weekday = self.timely.weekdays[self.now.weekday()]
+            # Automatically sets `start_time` and `end_time` to `None`
+            self.timely.set(weekdays=[weekday])
+            # Ensure that the instance is being stopped
+            self.timely.check()
+            stopped = False
+            instance = None
+            while not stopped:
+                try:
+                    # Need to remake a connection to AWS to get the updated
+                    # instance status
+                    instance = self.conn.get_only_instances()[0]
+                    if instance.state == 'stopped':
+                        stopped = True
+                    else:
+                        sleep(1)
+                except IndexError:
+                    pass
+            self.assertEqual(instance.state, 'stopped')
+        except IndexError:
+            pass
 
     def tearDown(self):
         del self.timely
