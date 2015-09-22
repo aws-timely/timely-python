@@ -25,7 +25,7 @@ timely is a Python package that allows users to manage the uptime of their [Amaz
     >>> timely = Timely()
     >>> timely.set(weekdays=['Monday', 'Tuesday', 'Wednesday'], start_time='9:00 AM', end_time='5:00 PM')
 
-### Check if container should be running
+### Check if containers should be running
 
     >>> from timely import Timely
     >>> timely = Timely(verbose=True)
