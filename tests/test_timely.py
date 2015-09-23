@@ -64,11 +64,24 @@ class TimelyTestCase(unittest.TestCase):
             pass
 
     def test_check_method_stops_instance_if_should_not_be_running(self):
+        """Check to ensure that an instance is stopped if it SHOULD NOT
+        be running.
+        """
         try:
             instance = self.conn.get_only_instances()[0]
             if instance.state == 'stopped':
                 # Start the instance to ensure it is running
                 instance.start()
+                running = False
+                while not running:
+                    try:
+                        instance = self.conn.get_only_instances()[0]
+                        if instance.state == 'running':
+                            running = True
+                        else:
+                            sleep(1)
+                    except IndexError:
+                        pass
             weekday = self.timely.weekdays[self.now.weekday()]
             # Automatically sets `start_time` and `end_time` to `None`
             self.timely.set(weekdays=[weekday])

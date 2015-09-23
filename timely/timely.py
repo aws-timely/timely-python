@@ -142,7 +142,14 @@ class Timely(object):
                 raise e
 
     def unset(self, instance_ids=None, weekdays=None):
-        """Unset instance times for specific weekdays or all weekdays."""
+        """Unset instance times for specific weekdays or all weekdays.
+
+        Args:
+            instance_ids (Optional[str]): A list of strings of instance
+                IDs
+            weekdays (Optional[str]): A list of weekdays
+                (e.g. `Monday` - `Sunday`)
+        """
         # integer representation of `weekdays`
         if weekdays == ['*']:
             # All 7 days
