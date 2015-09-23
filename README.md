@@ -4,6 +4,8 @@ timely 0.0.1
 
 Released: 2-Sep-2015
 
+[![Build Status](https://travis-ci.org/rightlag/timely.svg?branch=master)](https://travis-ci.org/rightlag/timely)
+
 ---
 
 # Introduction
