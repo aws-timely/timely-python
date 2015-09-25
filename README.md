@@ -1,6 +1,6 @@
 # timely
 
-timely 0.0.1
+timely 0.0.2
 
 Released: 2-Sep-2015
 

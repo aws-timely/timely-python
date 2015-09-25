@@ -72,8 +72,12 @@ class Timely(object):
                         end_time = datetime.strptime(end_time, '%H:%M')
                     except ValueError:
                         continue
-                    start_time = start_time.strftime('%H:%M')
-                    end_time = end_time.strftime('%H:%M')
+                    tz = instance.tags.get('tz', pytz.utc)
+                    tz = pytz.timezone(tz)
+                    start_time = tz.localize(start_time)
+                    end_time = tz.localize(end_time)
+                    start_time = start_time.strftime('%I:%M %p %Z%z')
+                    end_time = end_time.strftime('%I:%M %p %Z%z')
                     weekday = (self.weekdays[i + 1]
                                if self.iso else self.weekdays[i])
                     data[instance.id].append(
