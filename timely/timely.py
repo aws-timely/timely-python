@@ -46,6 +46,9 @@ class Timely(object):
         except pytz.exceptions.UnknownTimeZoneError:
             self.tz = pytz.utc
 
+    def _verbose_message(self, action, instance):
+        sys.stdout.write('{0} instance: {1}\n'.format(action, instance.id))
+
     def all(self, instance_ids=None):
         """Read weekday run times for all or specific EC2 instances.
 
@@ -203,7 +206,7 @@ class Timely(object):
                 # `start_time` and `end_time` - otherwise continue
                 continue
             tz = pytz.timezone(tz)
-            now = datetime.utcnow().replace(tzinfo=tz)
+            now = datetime.now(tz=tz)
             if self.iso:
                 weekday = now.isoweekday()
             else:
@@ -226,39 +229,28 @@ class Timely(object):
                         continue
                     start_time = start_time.replace(year=now.year,
                                                     month=now.month,
-                                                    day=now.day,
-                                                    tzinfo=tz)
+                                                    day=now.day)
                     end_time = end_time.replace(year=now.year,
-                                                month=now.month, day=now.day,
-                                                tzinfo=tz)
+                                                month=now.month, day=now.day)
+                    # http://www.saltycrane.com/blog/2009/05/converting-time-zones-datetime-objects-python/#add-timezone-localize
+                    start_time = tz.localize(start_time)
+                    end_time = tz.localize(end_time)
                     if start_time <= now <= end_time:
                         if instance.state == 'stopped':
                             if self.verbose:
-                                sys.stdout.write(
-                                    'Starting instance: {0}\r\n'.format(
-                                        instance.id
-                                    )
-                                )
+                                self._verbose_message('starting', instance)
                             instance.start()
                     else:
                         if instance.state == 'running':
                             if self.verbose:
-                                sys.stdout.write(
-                                    'Stopping instance: {0}\r\n'.format(
-                                        instance.id
-                                    )
-                                )
+                                self._verbose_message('stopping', instance)
                             instance.stop()
                 else:
                     # If the time is `None` check to see if the instance is
                     # running - if it is, then stop it by default
                     if instance.state == 'running':
                         if self.verbose:
-                            sys.stdout.write(
-                                'Stopping instance: {0}\r\n'.format(
-                                    instance.id
-                                )
-                            )
+                            self._verbose_message('stopping', instance)
                         instance.stop()
 
     def __str__(self):
