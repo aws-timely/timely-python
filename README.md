@@ -1,6 +1,6 @@
 # timely
 
-timely 0.0.1
+timely 0.0.2
 
 Released: 2-Sep-2015
 
@@ -39,3 +39,15 @@ All commits are tested with [Travis CI](https://travis-ci.org/) and *also* requi
     >>> timely = Timely(verbose=True)
     >>> timely.check()
     Stopping instance: i-6dc5bc92
+
+### Using timezones
+
+By default, `timely` sets the default timezone to `US/Eastern`. However, this can be changed upon instantiation of the `timely` class or via the `set_tz` method. For example:
+
+    >>> from timely import Timely
+    >>> timely = Timely(tz='US/Pacific')
+    >>> timely.set_tz('US/Mountain')
+
+If the timezone specified does not exist, then `UTC` is used.
+
+When assigning the timezone, the `set` method will create a tag `tz` for EC2 containers with the timezone that was specified. Whenever the `check` method is called, the `tz` tag that is assigned to the EC2 container is used to determine whether or not it should be running.

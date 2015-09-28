@@ -1,12 +1,14 @@
 import boto.ec2
 import collections
+import pytz
 import sys
 
 from datetime import datetime
 
 
 class Timely(object):
-    def __init__(self, region='us-east-1', iso=False, verbose=False):
+    def __init__(self, region='us-east-1', iso=False, verbose=False,
+                 tz='US/Eastern'):
         self.conn = boto.ec2.connect_to_region(region)
         self.iso = iso
         # Accommodate for ISO weekday - remove first element if `iso` is False
@@ -27,6 +29,7 @@ class Timely(object):
             weekdays.pop(0)
             self.weekdays = weekdays
         self.verbose = verbose
+        self.set_tz(tz)
 
     def use_verbose(self):
         self.verbose = True
@@ -36,6 +39,15 @@ class Timely(object):
 
     def set_region(self, region):
         self.conn = boto.ec2.connect_to_region(region)
+
+    def set_tz(self, tz):
+        try:
+            self.tz = pytz.timezone(tz)
+        except pytz.exceptions.UnknownTimeZoneError:
+            self.tz = pytz.utc
+
+    def _verbose_message(self, action, instance):
+        sys.stdout.write('{0} instance: {1}\n'.format(action, instance.id))
 
     def all(self, instance_ids=None):
         """Read weekday run times for all or specific EC2 instances.
@@ -60,8 +72,12 @@ class Timely(object):
                         end_time = datetime.strptime(end_time, '%H:%M')
                     except ValueError:
                         continue
-                    start_time = start_time.strftime('%H:%M')
-                    end_time = end_time.strftime('%H:%M')
+                    tz = instance.tags.get('tz', pytz.utc)
+                    tz = pytz.timezone(tz)
+                    start_time = tz.localize(start_time)
+                    end_time = tz.localize(end_time)
+                    start_time = start_time.strftime('%I:%M %p %Z%z')
+                    end_time = end_time.strftime('%I:%M %p %Z%z')
                     weekday = (self.weekdays[i + 1]
                                if self.iso else self.weekdays[i])
                     data[instance.id].append(
@@ -105,10 +121,14 @@ class Timely(object):
                 continue
             times = instance.tags.get('times')
             if not times:
-                # No `times` tag - set default
+                # No `times` tag - set defaults
                 times = ';'.join([str(None)] * 7)
+                tags = {
+                    'times': times,
+                    'tz': self.tz,
+                }
                 try:
-                    instance.add_tag('times', times)
+                    instance.add_tags(tags)
                 except self.conn.ResponseError, e:
                     raise e
             times = times.split(';')
@@ -135,9 +155,13 @@ class Timely(object):
                 # Remove first element `None` from `times` object
                 times.pop(0)
             times = ';'.join([str(time) for time in times])
+            tags = {
+                'times': times,
+                'tz': self.tz,
+            }
             try:
                 # Overwrite existing `times` tag with new value
-                instance.add_tag('times', times)
+                instance.add_tags(tags)
             except self.conn.ResponseError, e:
                 raise e
 
@@ -180,7 +204,13 @@ class Timely(object):
         """
         instances = self.conn.get_only_instances(instance_ids=instance_ids)
         for instance in instances:
-            now = datetime.now()
+            tz = instance.tags.get('tz')
+            if not tz:
+                # Needs to be a timezone to compare current time to
+                # `start_time` and `end_time` - otherwise continue
+                continue
+            tz = pytz.timezone(tz)
+            now = datetime.now(tz=tz)
             if self.iso:
                 weekday = now.isoweekday()
             else:
@@ -206,34 +236,25 @@ class Timely(object):
                                                     day=now.day)
                     end_time = end_time.replace(year=now.year,
                                                 month=now.month, day=now.day)
+                    # http://www.saltycrane.com/blog/2009/05/converting-time-zones-datetime-objects-python/#add-timezone-localize
+                    start_time = tz.localize(start_time)
+                    end_time = tz.localize(end_time)
                     if start_time <= now <= end_time:
                         if instance.state == 'stopped':
                             if self.verbose:
-                                sys.stdout.write(
-                                    'Starting instance: {0}\r\n'.format(
-                                        instance.id
-                                    )
-                                )
+                                self._verbose_message('starting', instance)
                             instance.start()
                     else:
                         if instance.state == 'running':
                             if self.verbose:
-                                sys.stdout.write(
-                                    'Stopping instance: {0}\r\n'.format(
-                                        instance.id
-                                    )
-                                )
+                                self._verbose_message('stopping', instance)
                             instance.stop()
                 else:
                     # If the time is `None` check to see if the instance is
                     # running - if it is, then stop it by default
                     if instance.state == 'running':
                         if self.verbose:
-                            sys.stdout.write(
-                                'Stopping instance: {0}\r\n'.format(
-                                    instance.id
-                                )
-                            )
+                            self._verbose_message('stopping', instance)
                         instance.stop()
 
     def __str__(self):
