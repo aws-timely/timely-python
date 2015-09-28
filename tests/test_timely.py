@@ -14,7 +14,9 @@ class TimelyTestCase(unittest.TestCase):
         self.conn = boto.ec2.connect_to_region('us-east-1')
         self.now = datetime.datetime.now(tz=pytz.timezone('US/Eastern'))
 
-    def test_times_tag_is_created(self):
+    def test_times_and_tz_tags_are_created(self):
+        """Assert that both the `times` and `tz` tags are created for
+        instances."""
         self.timely.set(weekdays=['*'])
         instances = self.conn.get_only_instances()
         for instance in instances:
@@ -22,6 +24,7 @@ class TimelyTestCase(unittest.TestCase):
             self.assertIn('tz', instance.tags)
 
     def test_times_tag_has_length_of_7(self):
+        """Assert that the length of the times tag is 7 elements."""
         self.timely.set(weekdays=['*'])
         instances = self.conn.get_only_instances()
         for instance in instances:
@@ -31,6 +34,7 @@ class TimelyTestCase(unittest.TestCase):
             self.assertEqual(len(times), 7)
 
     def test_time_is_set_for_weekday(self):
+        """Assert that a time is set for the current weekday."""
         weekday = self.timely.weekdays[self.now.weekday()]
         self.timely.set(weekdays=[weekday], start_time='9:00 AM',
                         end_time='5:00 PM')
@@ -40,6 +44,9 @@ class TimelyTestCase(unittest.TestCase):
             self.assertNotEqual(times[self.now.weekday()], str(None))
 
     def test_exception_if_start_time_is_greater_than_equal_to_end_time(self):
+        """If the start time is greater than or equal to the end time
+        a `ValueError` should be raised.
+        """
         with self.assertRaises(ValueError):
             # Greater
             self.timely.set(weekdays=['*'], start_time='9:00 AM',
@@ -49,6 +56,7 @@ class TimelyTestCase(unittest.TestCase):
                             end_time='9:00 AM')
 
     def test_unset_method(self):
+        """Assert that the times are set to `None` for all weekdays."""
         self.timely.set(weekdays=['*'], start_time='9:00 AM',
                         end_time='5:00 PM')
         instances = self.conn.get_only_instances()
