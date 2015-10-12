@@ -25,13 +25,16 @@ All commits are tested with [Travis CI](https://travis-ci.org/) and *also* requi
     >>> from timely import Timely
     >>> timely = Timely()
     >>> timely.all()
-    {u'i-6dc5bc92': [Time(weekday='Monday', start_time='09:00', end_time='17:00'), Time(weekday='Tuesday', start_time='09:00', end_time='17:00'), Time(weekday='Wednesday', start_time='09:00', end_time='17:00'), Time(weekday='Thursday', start_time='09:00', end_time='17:00'), Time(weekday='Friday', start_time='09:00', end_time='17:00'), Time(weekday='Saturday', start_time='09:00', end_time='17:00'), Time(weekday='Sunday', start_time='09:00', end_time='17:00')]}
+    {u'i-6dc5bc92': [Time(weekday='Monday', start_time=datetime.time(9, 0, tzinfo=<DstTzInfo 'US/Eastern' LMT-1 day, 19:04:00 STD>), end_time=datetime.time(17, 0, tzinfo=<DstTzInfo 'US/Eastern' LMT-1 day, 19:04:00 STD>))]}
 
 ### Set times for all containers during certain days of the week
 
     >>> from timely import Timely
+    >>> from datetime import time
     >>> timely = Timely()
-    >>> timely.set(weekdays=['Monday', 'Tuesday', 'Wednesday'], start_time='9:00 AM', end_time='5:00 PM')
+    >>> t1 = time(9, 0)
+    >>> t2 = time(17, 0)
+    >>> timely.set(t1, t2, weekdays=['Monday'])
 
 ### Check if containers should be running
 
