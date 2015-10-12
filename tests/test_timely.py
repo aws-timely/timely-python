@@ -35,6 +35,7 @@ class TimelyTestCase(unittest.TestCase):
             self.assertEqual(len(times), 7)
 
     def test_time_is_set_for_weekday(self):
+        """Assert that a time is set for the current weekday."""
         weekday = self.timely.weekdays[self.now.weekday()]
         t1 = datetime.time(9, 0)
         t2 = datetime.time(17, 0)
@@ -45,6 +46,9 @@ class TimelyTestCase(unittest.TestCase):
             self.assertNotEqual(times[self.now.weekday()], str(None))
 
     def test_exception_if_start_time_is_greater_than_equal_to_end_time(self):
+        """If the start time is greater than or equal to the end time
+        a `ValueError` should be raised.
+        """
         with self.assertRaises(ValueError):
             # Greater
             t1 = datetime.time(9, 0)
