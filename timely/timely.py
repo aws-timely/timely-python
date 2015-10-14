@@ -1,5 +1,6 @@
 import boto.ec2
 import collections
+import datetime
 import pytz
 import sys
 
@@ -49,12 +50,16 @@ class Timely(object):
     def _verbose_message(self, action, instance):
         sys.stdout.write('{0} instance: {1}\n'.format(action, instance.id))
 
-    def all(self, instance_ids=None):
-        """Read weekday run times for all or specific EC2 instances.
+    def all(self, instance_ids=None, as_dict=False):
+        """
+        Read weekday run times for all or specific EC2 instances.
 
-        Args:
-            instance_ids (Optional[str]): A list of strings of instance
-                IDs
+        :type instance_ids: list
+        :param instance_ids: A list of strings of instance IDs
+
+        :type as_dict: bool
+        :param as_dict: Set if data should be returned as a `dict`
+            instead of a `namedtuple`
         """
         data = {}
         Time = collections.namedtuple('Time',
@@ -68,53 +73,64 @@ class Timely(object):
                 for i in xrange(len(times)):
                     try:
                         start_time, end_time = times[i].split('-')
-                        start_time = datetime.strptime(start_time, '%H:%M')
-                        end_time = datetime.strptime(end_time, '%H:%M')
+                        start_time = datetime.strptime(start_time, '%H:%M:%S')
+                        end_time = datetime.strptime(end_time, '%H:%M:%S')
                     except ValueError:
                         continue
-                    tz = instance.tags.get('tz', pytz.utc)
-                    tz = pytz.timezone(tz)
-                    start_time = tz.localize(start_time)
-                    end_time = tz.localize(end_time)
-                    start_time = start_time.strftime('%I:%M %p %Z%z')
-                    end_time = end_time.strftime('%I:%M %p %Z%z')
-                    weekday = (self.weekdays[i + 1]
-                               if self.iso else self.weekdays[i])
-                    data[instance.id].append(
-                        Time(weekday, start_time, end_time)
+                    try:
+                        # If `tz` key exists, create `tz` object, otherwise
+                        # create default UTC `tz` object
+                        tz = instance.tags['tz']
+                        tz = pytz.timezone(tz)
+                    except KeyError:
+                        tz = pytc.utc
+                    start_time = tz.localize(start_time).timetz()
+                    end_time = tz.localize(end_time).timetz()
+                    weekday = (
+                        self.weekdays[i + 1] if self.iso else self.weekdays[i]
                     )
+                    if as_dict:
+                        # Ordered dictionary representation of weekday times
+                        data[instance.id].append(
+                            Time(weekday, start_time, end_time)._asdict()
+                        )
+                    else:
+                        data[instance.id].append(
+                            Time(weekday, start_time, end_time)
+                        )
         return data
 
-    def set(self, instance_ids=None, weekdays=None, start_time=None,
-            end_time=None):
-        """Create or update weekday run times for all or specific EC2
+    def set(self, start_time, end_time, weekdays=None, instance_ids=None):
+        """
+        Create or update weekday run times for all or specific EC2
         instances.
 
-        Args:
-            instance_ids (Optional[str]): A list of strings of instance
-                IDs
-            weekdays (Optional[str]): A list of weekdays
-                (e.g. `Monday` - `Sunday`)
-            start_time (Optional[str]): The instance starting time
-            end_time (Optional[str]): The instance ending time
+        :type instance_ids: list
+        :param instance_ids: A list of strings of instance IDs
+
+        :type weekdays: list
+        :param weekdays: A list of strings of weekdays (e.g. `Monday`)
+
+        :type start_time: datetime.time
+        :param start_time: The instance starting time
+
+        :type end_time: datetime.time
+        :param end_time: The instance ending time
         """
-        if start_time and end_time:
-            start_time = datetime.strptime(start_time, '%I:%M %p')
-            end_time = datetime.strptime(end_time, '%I:%M %p')
-            if start_time >= end_time:
-                raise ValueError('Start time can\'t be greater than end time')
-            start_time = start_time.strftime('%H:%M')
-            end_time = end_time.strftime('%H:%M')
-            updated = '{0}-{1}'.format(start_time, end_time)
-        else:
-            updated = None
-        instances = self.conn.get_only_instances(instance_ids=instance_ids)
+        if start_time >= end_time:
+            raise ValueError(
+                'Start time can\'t be greater than or equal to end time'
+            )
+        start_time = start_time.isoformat()
+        end_time = end_time.isoformat()
+        updated = '{0}-{1}'.format(start_time, end_time)
         # integer representation of `weekdays`
-        if weekdays == ['*']:
-            # All 7 days
-            weekdays = range(len(self.weekdays))
-        else:
+        if weekdays:
             weekdays = [self.weekdays.index(weekday) for weekday in weekdays]
+        else:
+            # `weekdays` not set, assign times for entire week
+            weekdays = range(len(self.weekdays))
+        instances = self.conn.get_only_instances(instance_ids=instance_ids)
         for instance in instances:
             if instance.state == 'terminated':
                 # Do not tag a terminated instance
@@ -149,8 +165,15 @@ class Timely(object):
                     while actual < desired:
                         times.append(None)
                         actual += 1
-                    # Finally, append the `updated` weekday
+                    # Append the `updated` weekday
                     times.append(updated)
+                finally:
+                    # If the length of the `times` list object is less than 7,
+                    # then extend the list object to include the remaining
+                    # times
+                    if len(times) < 7:
+                        diff = 7 - len(times)
+                        times.extend([None] * diff)
             if self.iso:
                 # Remove first element `None` from `times` object
                 times.pop(0)
@@ -166,20 +189,21 @@ class Timely(object):
                 raise e
 
     def unset(self, instance_ids=None, weekdays=None):
-        """Unset instance times for specific weekdays or all weekdays.
+        """
+        Unset instance times for specific weekdays or all weekdays.
 
-        Args:
-            instance_ids (Optional[str]): A list of strings of instance
-                IDs
-            weekdays (Optional[str]): A list of weekdays
-                (e.g. `Monday` - `Sunday`)
+        :type instance_ids: list
+        :param instance_ids: A list of strings of instance IDs
+
+        :type weekdays: list
+        :param weekdays: A list of strings of weekdays (e.g. `Monday`)
         """
         # integer representation of `weekdays`
-        if weekdays == ['*']:
-            # All 7 days
-            weekdays = range(len(self.weekdays))
-        else:
+        if weekdays:
             weekdays = [self.weekdays.index(weekday) for weekday in weekdays]
+        else:
+            # `weekdays` not set, assign times for entire week
+            weekdays = range(len(self.weekdays))
         instances = self.conn.get_only_instances(instance_ids=instance_ids)
         for instance in instances:
             times = instance.tags.get('times')
@@ -195,12 +219,12 @@ class Timely(object):
                     raise e
 
     def check(self, instance_ids=None):
-        """Check the state of instances and either start or stop them
-        based on the current time restrictions set for the current day.
+        """
+        Check the state of instances and either start or stop them based
+        on the current time restrictions set for the current day.
 
-        Args:
-            instance_ids (Optional[str]): A list of strings of instance
-                IDs
+        :type instance_ids: list
+        :param instance_ids: A list of strings of instance IDs
         """
         instances = self.conn.get_only_instances(instance_ids=instance_ids)
         for instance in instances:
@@ -227,8 +251,8 @@ class Timely(object):
                 if today != str(None):
                     try:
                         start_time, end_time = today.split('-')
-                        start_time = datetime.strptime(start_time, '%H:%M')
-                        end_time = datetime.strptime(end_time, '%H:%M')
+                        start_time = datetime.strptime(start_time, '%H:%M:%S')
+                        end_time = datetime.strptime(end_time, '%H:%M:%S')
                     except ValueError:
                         continue
                     start_time = start_time.replace(year=now.year,
