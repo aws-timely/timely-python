@@ -83,7 +83,7 @@ class Timely(object):
                         tz = instance.tags['tz']
                         tz = pytz.timezone(tz)
                     except KeyError:
-                        tz = pytc.utc
+                        tz = pytz.utc
                     start_time = tz.localize(start_time).timetz()
                     end_time = tz.localize(end_time).timetz()
                     weekday = (
