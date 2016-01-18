@@ -89,15 +89,11 @@ class Timely(object):
                     weekday = (
                         self.weekdays[i + 1] if self.iso else self.weekdays[i]
                     )
+                    time = Time(weekday, start_time, end_time)
                     if as_dict:
                         # Ordered dictionary representation of weekday times
-                        data[instance.id].append(
-                            Time(weekday, start_time, end_time)._asdict()
-                        )
-                    else:
-                        data[instance.id].append(
-                            Time(weekday, start_time, end_time)
-                        )
+                        time = time._asdict()
+                    data[instance.id].append(time)
         return data
 
     def set(self, start_time, end_time, weekdays=None, instance_ids=None):
@@ -285,4 +281,4 @@ class Timely(object):
         return '{0}:{1}'.format(self.__class__.__name__, self.conn.region.name)
 
     def __repr__(self):
-        return '{0}:{1}'.format(self.__class__.__name__, self.conn.region.name)
+        return str(self)
