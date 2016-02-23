@@ -30,22 +30,18 @@ class Timely(object):
             weekdays.pop(0)
             self.weekdays = weekdays
         self.verbose = verbose
-        self.set_tz(tz)
+        self._tz = tz
 
-    def use_verbose(self):
-        self.verbose = True
+    @property
+    def tz(self):
+        return self._tz
 
-    def use_iso(self):
-        self.iso = True
-
-    def set_region(self, region):
-        self.conn = boto.ec2.connect_to_region(region)
-
-    def set_tz(self, tz):
+    @tz.setter
+    def tz(self, tz):
         try:
-            self.tz = pytz.timezone(tz)
+            self._tz = pytz.timezone(tz)
         except pytz.exceptions.UnknownTimeZoneError:
-            self.tz = pytz.utc
+            self._tz = pytz.utc
 
     def _verbose_message(self, action, instance):
         sys.stdout.write('{0} instance: {1}\n'.format(action, instance.id))
@@ -132,7 +128,7 @@ class Timely(object):
                 # Do not tag a terminated instance
                 continue
             times = instance.tags.get('times')
-            if not times:
+            if times is None:
                 # No `times` tag - set defaults
                 times = ';'.join([str(None)] * 7)
                 tags = {
@@ -225,7 +221,7 @@ class Timely(object):
         instances = self.conn.get_only_instances(instance_ids=instance_ids)
         for instance in instances:
             tz = instance.tags.get('tz')
-            if not tz:
+            if tz is None:
                 # Needs to be a timezone to compare current time to
                 # `start_time` and `end_time` - otherwise continue
                 continue
@@ -277,8 +273,6 @@ class Timely(object):
                             self._verbose_message('stopping', instance)
                         instance.stop()
 
-    def __str__(self):
-        return '{0}:{1}'.format(self.__class__.__name__, self.conn.region.name)
-
     def __repr__(self):
-        return str(self)
+        return '{0}:{1}'.format(self.__class__.__name__,
+                                self.conn.region.name)
