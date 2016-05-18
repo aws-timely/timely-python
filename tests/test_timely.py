@@ -1,7 +1,6 @@
 import boto.ec2
 import datetime
 import pytz
-import sys
 import unittest
 
 from time import sleep
@@ -29,8 +28,8 @@ class TimelyTestCase(unittest.TestCase):
         self.timely.set(t1, t2)
         instances = self.conn.get_only_instances()
         for instance in instances:
-            # Ensure that the length of the `times` list object has a length
-            # of 7
+            # Ensure that the length of the `times` list object has a
+            # length of 7.
             times = instance.tags['times'].split(';')
             self.assertEqual(len(times), 7)
 
@@ -74,41 +73,33 @@ class TimelyTestCase(unittest.TestCase):
             self.assertEqual(times, ';'.join([str(None)] * 7))
 
     def test_check_method_stops_instance_if_should_not_be_running(self):
+        """ Check to ensure that an instance is stopped if it SHOULD NOT
+        be running.
         """
-        Check to ensure that an instance is stopped if it SHOULD NOT be
-        running.
-        """
-        try:
-            instance = self.conn.get_only_instances()[0]
-            if instance.state == 'stopped':
-                running = False
-                # Start the instance to ensure it is running
-                sys.stdout.write('starting instance: {0}\n'
-                                 .format(instance.id))
-                instance.start()
-                while not running:
-                    instance.update()
-                    if instance.state == 'running':
-                        running = True
-                    else:
-                        sleep(1)
-            t1 = datetime.time(9, 0)
-            t2 = datetime.time(17, 0)
-            weekday = self.timely.weekdays[self.now.weekday()]
-            # Automatically sets `start_time` and `end_time` to `None`
-            self.timely.set(t1, t2, weekdays=[weekday])
-            # Ensure that the instance is being stopped
-            self.timely.check()
-            stopped = False
-            while not stopped:
+        instance = self.conn.get_only_instances()[0]
+        if instance.state == 'stopped':
+            running = False
+            # Start the instance to ensure it is running.
+            self.timely._verbose_message('starting', instance)
+            instance.start()
+            while not running:
                 instance.update()
-                if instance.state == 'stopped':
-                    stopped = True
+                if instance.state == 'running':
+                    running = True
                 else:
                     sleep(1)
-            self.assertEqual(instance.state, 'stopped')
-        except IndexError:
-            pass
-
-    def tearDown(self):
-        del self.timely
+        t1 = datetime.time(9, 0)
+        t2 = datetime.time(17, 0)
+        weekday = self.timely.weekdays[self.now.weekday()]
+        # Automatically sets `start_time` and `end_time` to `None`.
+        self.timely.set(t1, t2, weekdays=[weekday])
+        # Ensure that the instance is being stopped.
+        self.timely.check()
+        stopped = False
+        while not stopped:
+            instance.update()
+            if instance.state == 'stopped':
+                stopped = True
+            else:
+                sleep(1)
+        self.assertEqual(instance.state, 'stopped')

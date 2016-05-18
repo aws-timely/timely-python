@@ -63,7 +63,7 @@ class Timely(object):
         instances = self.conn.get_only_instances(instance_ids=instance_ids)
         for instance in instances:
             times = instance.tags.get('times')
-            if times:
+            if times is not None:
                 data[instance.id] = []
                 times = times.split(';')
                 for i in xrange(len(times)):
@@ -199,7 +199,7 @@ class Timely(object):
         instances = self.conn.get_only_instances(instance_ids=instance_ids)
         for instance in instances:
             times = instance.tags.get('times')
-            if times:
+            if times is not None:
                 times = times.split(';')
                 for weekday in weekdays:
                     times[weekday] = None
@@ -232,7 +232,7 @@ class Timely(object):
             else:
                 weekday = now.weekday()
             times = instance.tags.get('times')
-            if times:
+            if times is not None:
                 times = times.split(';')
                 try:
                     today = times[weekday]

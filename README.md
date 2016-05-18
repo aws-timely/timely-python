@@ -1,12 +1,8 @@
-# timely
+# timely [![Travis](https://img.shields.io/travis/rightlag/timely.svg?style=flat-square)](https://travis-ci.org/rightlag/timely) [![PEP8](https://img.shields.io/badge/code%20style-pep8-orange.svg?style=flat-square)](https://www.python.org/dev/peps/pep-0008/)
 
 timely 0.2.0
 
 Released: 2-Sep-2015
-
-[![Build Status](https://travis-ci.org/rightlag/timely.svg?branch=master)](https://travis-ci.org/rightlag/timely)
-
----
 
 # Introduction
 
@@ -23,34 +19,30 @@ All commits are tested with [Travis CI](https://travis-ci.org/) and *also* requi
 ### Fetch all containers and their times
 
 ```python
-from timely import Timely
-
-timely = Timely()
-print timely.all()
+>>> from timely import Timely
+>>> timely = Timely()
+>>> print(timely.all())
 {u'i-6dc5bc92': [Time(weekday='Monday', start_time=datetime.time(9, 0, tzinfo=<DstTzInfo 'US/Eastern' LMT-1 day, 19:04:00 STD>), end_time=datetime.time(17, 0, tzinfo=<DstTzInfo 'US/Eastern' LMT-1 day, 19:04:00 STD>))]}
 ```
 
 ### Set times for all containers during certain days of the week
 
 ```python
-from timely import Timely
-from datetime import time
-
-timely = Timely()
-t1 = time(9, 0)
-t2 = time(17, 0)
-# Set all containers to run between 9:00 AM - 5:00 PM EST every Monday
-timely.set(t1, t2, weekdays=['Monday'])
+>>> from timely import Timely
+>>> from datetime import time
+>>> timely = Timely()
+>>> t1 = time(9, 0)
+>>> t2 = time(17, 0)
+>>> timely.set(t1, t2, weekdays=['Monday'])
 ```
 
 ### Check if containers should be running
 
 ```python
-from timely import Timely
-
-timely = Timely(verbose=True)
-timely.check()
-Stopping instance: i-6dc5bc92
+>>> from timely import Timely
+>>> timely = Timely(verbose=True)
+>>> timely.check()
+starting instance: i-6dc5bc92
 ```
 
 ### Using timezones
@@ -58,10 +50,11 @@ Stopping instance: i-6dc5bc92
 By default, `timely` sets the default timezone to `US/Eastern`. However, this can be changed upon instantiation of the `timely` class or via the `set_tz` method. For example:
 
 ```python
-from timely import Timely
-
-timely = Timely(tz='US/Pacific')
-timely.set_tz('US/Mountain')
+>>> from timely import Timely
+>>> timely = Timely(tz='US/Pacific')
+>>> timely.tz = 'US/Mountain'
+>>> print(timely.tz)
+US/Mountain
 ```
 
 If the timezone specified does not exist, then `UTC` is used.
