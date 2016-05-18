@@ -137,7 +137,7 @@ class Timely(object):
                 }
                 try:
                     instance.add_tags(tags)
-                except self.conn.ResponseError, e:
+                except self.conn.ResponseError as e:
                     raise e
             times = times.split(';')
             if self.iso:
@@ -177,7 +177,7 @@ class Timely(object):
             try:
                 # Overwrite existing `times` tag with new value
                 instance.add_tags(tags)
-            except self.conn.ResponseError, e:
+            except self.conn.ResponseError as e:
                 raise e
 
     def unset(self, instance_ids=None, weekdays=None):
@@ -207,7 +207,7 @@ class Timely(object):
                 try:
                     # Overwrite existing `times` tag with new value
                     instance.add_tag('times', times)
-                except self.conn.ResponseError, e:
+                except self.conn.ResponseError as e:
                     raise e
 
     def check(self, instance_ids=None):
